@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 
-# 钉钉推送函数（不用改）
+# 钉钉推送函数
 def send_to_dingtalk(content):
     webhook = os.environ.get('DINGTALK_WEBHOOK_URL')
     if not webhook:
@@ -27,21 +27,26 @@ def send_to_dingtalk(content):
         print(f"❌ 推送异常：{e}")
         return False
 
-48e929092baf9ba4943088dd316331ae
+# ---------- 使用免费公开接口（百度热搜） ----------
 def get_hot_news():
     try:
-        # 使用更稳定的免费 API（替换了原来的 newsnow）
-        url = "https://api.tianapi.com/guonei/index?key=请替换你的APIKey&num=10"
+        # 这个接口无需 Key，返回百度热搜 JSON
+        url = "https://api.vvhan.com/api/hot"
         response = requests.get(url, timeout=10)
         data = response.json()
         
-        # 根据新 API 的数据格式解析
-        if data.get('code') == 200:
-            news_list = data.get('newslist', [])
-            print(f"✅ 成功获取 {len(news_list)} 条热点新闻")
-            return news_list
+        # 检查返回状态
+        if data.get('success') or data.get('code') == 200:
+            # 提取热搜列表
+            news_list = data.get('data', [])
+            if isinstance(news_list, list) and len(news_list) > 0:
+                print(f"✅ 成功获取 {len(news_list)} 条热点新闻")
+                return news_list
+            else:
+                print(f"⚠️ 返回的数据格式异常：{data}")
+                return []
         else:
-            print(f"❌ API 返回错误：{data.get('msg', '未知错误')}")
+            print(f"❌ API 返回错误：{data.get('msg', data)}")
             return []
     except Exception as e:
         print(f"❌ 获取热点失败：{e}")
@@ -58,9 +63,10 @@ def main():
     # 构建推送内容（取前10条）
     content = f"每天一分钟，热点全掌握（{today}）\n\n"
     for idx, item in enumerate(news_list[:10], 1):
-        title = item.get('title', '无标题')
-        source = item.get('source', '')
-        date = item.get('ctime', today)
+        # 根据实际 JSON 结构提取标题和来源
+        title = item.get('title', item.get('name', '无标题'))
+        source = item.get('source', item.get('platform', '百度热搜'))
+        date = today  # 接口不提供日期，用当天
         content += f"{idx}、{date}，{source}：{title}\n\n"
 
     send_to_dingtalk(content)
